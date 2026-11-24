@@ -87,6 +87,12 @@ a{color:inherit}
 .evfoot .go{margin-left:auto;color:var(--gold);font-weight:700}
 .prow{display:flex;justify-content:space-between;gap:10px;width:100%;padding:13px 4px;border:0;border-bottom:1px solid var(--line);background:none;text-align:left;font-size:16px}
 .prow small{color:var(--muted);white-space:nowrap}
+.pk{display:flex;gap:12px;align-items:flex-start;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:13px 12px 13px 12px;margin-bottom:8px;font:inherit;color:inherit}
+.pk-d{flex:0 0 60px;text-align:center;border-right:1px solid var(--line2);padding-right:10px;white-space:nowrap}
+.pk-d b{display:block;font-size:17px;line-height:1.2;color:var(--navy)}.pk-d span{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+.pk-b{flex:1;min-width:0}.pk-t{font-weight:800;font-size:16px;line-height:1.35}.pk-m{font-size:13px;color:var(--muted);margin-top:2px}
+.pk-s{font-size:14px;color:var(--ink2);margin-top:5px;line-height:1.5}.pk-c{display:inline-block;font-size:12px;color:var(--gold);font-weight:700;margin-top:5px}
+.pk-g{color:var(--muted);font-size:20px;align-self:center}
 .foot{text-align:center;color:var(--muted);font-size:14px;margin-top:34px;padding-top:18px;border-top:1px solid var(--line)}
 .foot a[href^="tel"]{color:var(--ink2);font-weight:700}
 .foot .admlink{display:inline-block;margin-top:12px;color:var(--muted);font-size:13px}
@@ -204,6 +210,10 @@ a{color:inherit}
 .seg button + button{border-left:1px solid var(--line)}
 .seg .s-ok.on{background:var(--ok);color:#fff}
 .seg .s-no.on{background:var(--no);color:#fff}
+.field[hidden]{display:none}
+.lseg{margin:6px 0 2px}.lseg button{flex:1;padding:11px 8px}.lseg button.on{background:var(--navy);color:#fff}
+.who{display:inline-block;margin-left:8px;font-size:12px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--navy);color:var(--gold2);vertical-align:2px}
+.who.o{background:var(--line2);color:var(--muted)}
 .pill{display:inline-block;font-size:12px;font-weight:700;padding:1px 8px;border-radius:999px}
 .pill.ok{background:var(--okbg);color:var(--ok)}.pill.no{background:var(--nobg);color:var(--no)}.pill.wait{background:var(--waitbg);color:var(--wait)}.pill.mute{background:var(--line2);color:var(--muted)}
 .chk{flex:0 0 auto;width:54px;height:44px;border-radius:10px;border:2px solid var(--line);background:#fff;font-size:22px;color:transparent;font-weight:700}
@@ -585,6 +595,16 @@ function routeTo(p) {
   else goHome(false);
 }
 
+// 지난 행사 — 날짜·제목·장소와 안내 첫 줄(행사 이야기), 회신 기록이 있으면 함께한 인원
+const pastCard = ev => {
+  const dt = pd(ev.date);
+  const first = String(ev.notice || '').split('\n').map(x => x.trim()).filter(Boolean)[0] || '';
+  return `<button class="pk" data-ev="${h(ev.id)}">
+    <div class="pk-d"><b>${dt ? (dt.getMonth() + 1) + '.' + dt.getDate() : '·'}</b><span>${dt ? dt.getFullYear() + ' ' + DOW[dt.getDay()] : ''}</span></div>
+    <div class="pk-b"><div class="pk-t">${h(ev.title)}</div>${ev.place ? `<div class="pk-m">${h(ev.place)}</div>` : ''}${first ? `<div class="pk-s">${h(first)}</div>` : ''}${ev.yes ? `<span class="pk-c">함께한 회원 ${ev.yes}명</span>` : ''}</div>
+    <span class="pk-g">›</span></button>`;
+};
+
 function renderHome(d) {
   P.home = d; P.data = null;
   document.title = d.site.name;
@@ -601,7 +621,7 @@ function renderHome(d) {
     <h2 class="sec">다가오는 행사</h2>
     ${d.upcoming.length ? d.upcoming.map(card).join('') : '<div class="empty">예정된 행사가 없습니다.</div>'}
     ${memberSection()}
-    ${d.past.length ? `<h2 class="sec">지난 행사</h2><div>${d.past.map(ev => `<button class="prow" data-ev="${h(ev.id)}"><span>${h(ev.title)}</span><small>${h(dShort(ev.date))}</small></button>`).join('')}</div>` : ''}
+    ${d.past.length ? `<h2 class="sec">지난 행사</h2>${d.past.map(pastCard).join('')}` : ''}
     ${footHtml(d.site)}</main>`;
   window.scrollTo(0, 0);
 }
@@ -626,6 +646,7 @@ function renderEvent(d) {
   const ev = d.event, site = d.site;
   document.title = ev.title + ' · ' + site.name;
   const mapQ = ev.address || ev.place;
+  const past = !!(ev.date && d.today && ev.date < d.today);
   app.innerHTML = `<main class="pub">
     <div class="topline"><button class="back" data-pa="home">‹ 전체 행사</button><span class="mini">${h(site.name)}</span></div>
     <section class="invhero">
@@ -636,16 +657,16 @@ function renderEvent(d) {
       ${ev.place ? `<div class="where">${h(ev.place)}${ev.address ? `<small>${h(ev.address)}</small>` : ''}</div>` : ''}
       ${mapQ ? `<a class="btn sm" href="https://map.naver.com/p/search/${encodeURIComponent(mapQ)}" target="_blank" rel="noopener">지도 보기</a>` : ''}
     </section>
-    ${ev.notice ? `<section class="card"><h3>안내</h3><p class="pre">${h(ev.notice)}</p></section>` : ''}
-    ${ev.fee ? `<section class="card"><h3>회비</h3><div class="feeamt">${won(ev.fee)}</div>${d.vacctOn && DUES_TRACK
+    ${ev.notice ? `<section class="card"><h3>${past ? '행사 이야기' : '안내'}</h3><p class="pre">${h(ev.notice)}</p></section>` : ''}
+    ${ev.fee && !past ? `<section class="card"><h3>회비</h3><div class="feeamt">${won(ev.fee)}</div>${d.vacctOn && DUES_TRACK
       ? `<p class="vnote">회원마다 <b>전용 입금 계좌</b>가 있습니다. 아래에서 이름을 누르면 내 계좌가 나옵니다.<br>입금자 이름이 달라도 본인 입금으로 확인됩니다.</p>`
       : ev.account ? `<div class="acc"><span>${h(ev.account)}</span><button class="btn sm" data-copy="${h(ev.account)}">계좌 복사</button></div>` : ''}</section>` : ''}
-    <section class="card" id="reply">
+    ${past ? (d.counts.yes ? `<section class="card"><h3>함께한 회원</h3><div class="closed"><b>${d.counts.yes}명</b>이 함께했습니다.</div></section>` : '') : `<section class="card" id="reply">
       <h3>참석 여부 회신</h3>
       ${ev.deadline && ev.status === '진행' ? `<p class="dl">${h(dShort(ev.deadline))}까지 알려 주세요</p>` : ''}
       <div class="count" id="cnt">${cntHtml(d.counts)}</div>
       <div id="rbox"></div>
-    </section>
+    </section>`}
     ${footHtml(site)}
   </main>`;
   renderReply();
@@ -847,7 +868,7 @@ function renderJoin(d) {
     <section class="invhero jhero">
       ${d.site.name === '백인회' ? `<img class="seal-logo" src="${LOGO}" alt="백인회 百人會">` : `<div class="seal">${h(d.site.name)}</div>`}
       <h1>회원 카드 만들기</h1>
-      <p>사진과 업체·하는 일을 올려 주세요.<br>임원 확인 후 <b>회원 소개</b>와 <b>백인회 카탈로그</b>에 실립니다.</p>
+      <p>사진과 업체·하는 일을 올려 주세요.<br>회장님 승인 후 <b>회원 소개</b>와 <b>백인회 카탈로그</b>에 실립니다.</p>
       <div class="jprog"><div class="bar"><i style="width:${pct}%"></i></div><span>지금까지 <b>${d.joined}명</b> 등록 · 전체 ${d.total}명</span></div>
     </section>
     <section class="card" id="jbox"></section>
@@ -895,8 +916,8 @@ function joinFormHtml() {
   let head = m
     ? `<div class="me"><div><b>${h(m.name)}</b> 님<small>${h(teamName(m.tno, site))}</small></div><button type="button" data-pa="junpick">다른 이름 고르기</button></div>`
     : `<div class="me"><div><b>새로 가입</b><small>명단에 없는 분</small></div><button type="button" data-pa="junpick">명단에서 찾기</button></div>`;
-  if (m && m.card === '승인') head += `<p class="jnote">이미 회원 카드가 등록되어 있습니다. 내용을 바꾸려면 아래에 다시 써서 내 주세요. 임원 확인 후 바뀝니다.</p>`;
-  else if (m && m.card === '대기') head += `<p class="jnote">임원 확인을 기다리는 카드가 있습니다. 다시 내면 새 내용으로 바뀝니다.</p>`;
+  if (m && m.card === '승인') head += `<p class="jnote">이미 회원 카드가 등록되어 있습니다. 내용을 바꾸려면 아래에 다시 써서 내 주세요. 회장님 승인 후 바뀝니다.</p>`;
+  else if (m && m.card === '대기') head += `<p class="jnote">회장님 승인을 기다리는 카드가 있습니다. 다시 내면 새 내용으로 바뀝니다.</p>`;
   const teamSel = m ? '' : `<label class="field"><span>조</span><select name="team">${[1, 2, 3].map(n => `<option value="${n}" ${String(k.team || '') === String(n) ? 'selected' : ''}>${h(teamName(n, site))}</option>`).join('')}<option value="" ${k.team === '' || k.team == null ? 'selected' : ''}>잘 모르겠어요</option></select></label>`;
   return `${head}
     <form id="jf" novalidate>
@@ -911,17 +932,17 @@ function joinFormHtml() {
       ${teamSel}
       <label class="field"><span>휴대폰 *</span><input name="phone" type="tel" inputmode="tel" value="${v('phone')}" placeholder="010-0000-0000" autocomplete="tel"></label>
       <label class="field"><span>업체(상호)</span><input name="company" value="${v('company')}" maxlength="40" placeholder="예: 르빵드비" autocomplete="organization"></label>
-      <div class="row2"><label class="field" style="flex:1;min-width:120px"><span>직책</span><input name="position" value="${v('position')}" maxlength="30" placeholder="예: 대표"></label>
+      <div class="row2"><label class="field" style="flex:1;min-width:120px"><span>회사 직함</span><input name="position" value="${v('position')}" maxlength="30" placeholder="예: 대표"></label>
         <label class="field" style="flex:1.4;min-width:150px"><span>하는 일·업종</span><input name="biz" value="${v('biz')}" maxlength="40" placeholder="예: 베이커리·카페"></label></div>
       <label class="field"><span>한마디 소개</span><textarea name="intro" rows="2" maxlength="100" placeholder="예: 좋은 빵으로 백인회 행사를 응원합니다">${v('intro')}</textarea></label>
       <label class="chk2"><input type="checkbox" name="pubCard" ${k.pubCard === false ? '' : 'checked'}><span><b>회원 소개에 싣기</b><small>홈페이지 회원 소개와 백인회 카탈로그에 사진·업체·소개가 실립니다.</small></span></label>
       <label class="chk2"><input type="checkbox" name="pubPhone" ${k.pubPhone ? 'checked' : ''}><span><b>휴대폰 번호도 보이기</b><small>회원 소개에서 다른 회원이 바로 전화·문자를 걸 수 있습니다.</small></span></label>
-      <label class="field"><span>임원에게 남길 말 (선택)</span><input name="note" value="${v('note')}" maxlength="200" placeholder="예: 이름 철자는 ‘정창무’가 맞습니다"></label>
+      <label class="field"><span>회장님께 남길 말 (선택)</span><input name="note" value="${v('note')}" maxlength="200" placeholder="예: 이름 철자는 ‘정창무’가 맞습니다"></label>
       <input name="website" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true">
       <div class="agree">
         <label class="chk2"><input type="checkbox" name="agree" ${k.agree ? 'checked' : ''}><span><b>(필수) 개인정보 수집·이용에 동의합니다</b><small>동의하셔야 회원 카드를 낼 수 있습니다.</small></span></label>
         <details class="how"><summary>무엇을 왜 받나요?</summary><ul>
-          <li><b>받는 것</b> — 이름, 휴대폰 번호, 소속 조, 업체·직책·업종, 소개, 사진</li>
+          <li><b>받는 것</b> — 이름, 휴대폰 번호, 소속 조, 업체·회사 직함·업종, 소개, 사진</li>
           <li><b>쓰는 곳</b> — ${h(site.name)} 회원 관리와 행사 안내, 회원 소개·카탈로그 제작</li>
           <li><b>보관</b> — 탈퇴할 때까지. 탈퇴하거나 지워 달라고 하시면 바로 지웁니다.</li>
           <li>휴대폰 번호는 ‘휴대폰 번호도 보이기’를 고른 분만 회원 소개에 보입니다.</li>
@@ -1009,8 +1030,8 @@ function cardPreview(c, photo) {
 
 function joinDoneHtml() {
   const o = J.done, site = J.d.site;
-  const share = lines([`[${site.name}] 회원 카드 만들기`, '', '홈페이지에서 내 회원 카드를 만들어 주세요.', '임원 확인 후 회원 소개와 카탈로그에 실립니다.', '', joinUrl()]);
-  return `<div class="status yes">✓ 회원 카드를 냈습니다<small>임원 확인 후 회원 소개에 실립니다.${o.pubCard ? '' : ' (회원 소개에 싣지 않음으로 냈습니다)'}</small></div>
+  const share = lines([`[${site.name}] 회원 카드 만들기`, '', '홈페이지에서 내 회원 카드를 만들어 주세요.', '회장님 승인 후 회원 소개와 카탈로그에 실립니다.', '', joinUrl()]);
+  return `<div class="status yes">✓ 회원 카드를 냈습니다<small>회장님 승인 후 회원 소개에 실립니다.${o.pubCard ? '' : ' (회원 소개에 싣지 않음으로 냈습니다)'}</small></div>
     ${cardPreview({ name: o.name, team: J.sel ? J.sel.tno : o.team, company: o.company, position: o.position, biz: o.biz, intro: o.intro }, J.photo)}
     <div class="row2" style="margin-top:14px"><button class="btn" style="flex:1" data-pa="dir">회원 소개 보기</button><button class="btn" style="flex:1" data-pa="home">처음 화면</button></div>
     <div class="jshare"><p>다른 회원에게도 알려 주세요</p><button class="btn sm gold" data-copy="${h(share)}">가입 안내 복사</button><button class="btn sm ghost" data-pa="jagain">한 분 더 내기</button></div>`;
@@ -1127,6 +1148,11 @@ const ICON = {
 };
 
 const isAuth = e => /AUTH/.test(errMsg(e));
+const tokRole = t => String(t || '').split('.')[1] || '';
+const isChair = () => !!(S.D && S.D.me && S.D.me.role === 'P');
+const roleChip = () => S.D && S.D.me ? (isChair() ? '<span class="who">회장</span>' : '<span class="who o">임원</span>') : '';
+const setupNote = () => isChair() && !S.D.chairSet && S.view !== 'settings'
+  ? '<button class="gocard" data-nav="settings" style="margin-bottom:10px"><span>회장 비밀번호를 아직 정하지 않았습니다 — 지금은 임원 공용 비밀번호로 들어온 분도 회장 권한을 가집니다</span><span>정하기 ›</span></button>' : '';
 const part = (eid, mid) => (IDX.parts[eid] || {})[mid];
 const activeMembers = () => S.D.members.filter(m => !m.status || m.status === '활동');
 const curEv = () => S.D.events.filter(e => e.id === S.evId)[0];
@@ -1165,27 +1191,55 @@ function stats(ev) {
 async function admStart() {
   S.token = lsGet('bih_tok');
   if (!S.token) { showLogin(); return; }
+  if (S.token.split('.').length !== 4) { lsDel('bih_tok'); showLogin(); return; }   // 예전 방식 로그인
   app.innerHTML = loadingHtml('관리 화면을 여는 중…');
+  if (tokRole(S.token) === 'L') {
+    S.D = null;
+    try { S.L = await api('adm_teamLoad', S.token); renderLead(); }
+    catch (e) { S.L = null; if (isAuth(e)) { lsDel('bih_tok'); showLogin(); } else showLogin(errMsg(e)); }
+    return;
+  }
+  S.L = null;
   try { S.D = await api('adm_load', S.token); index(); renderAdm(); }
   catch (e) { if (isAuth(e)) { lsDel('bih_tok'); showLogin(); } else showLogin(errMsg(e)); return; }
   loadCards(false);
 }
 
+const LOGIN_HINT = { pw: '회장님은 회장 비밀번호, 임원은 임원 공용 비밀번호로 들어옵니다.', lead: '조장님은 명부에 있는 휴대폰 번호와 회장님께 받은 조장 비밀번호로 들어옵니다.' };
 function showLogin(err) {
   const site = B.site || { name: '백인회' };
   app.innerHTML = `<main class="adm-login">${brandHtml(site.name)}
-    <form id="lf" class="card"><h2>임원 관리</h2><p class="hint">${DUES_TRACK ? '행사 안내·참석 회신·회비 입금을 관리합니다.' : '행사 안내·참석 회신·출석을 관리합니다.'}</p>
-      <label class="field"><span>관리자 비밀번호</span><input type="password" id="pw" autocomplete="current-password" required></label>
+    <form id="lf" class="card" data-lt="pw"><h2>임원 관리</h2><p class="hint">${DUES_TRACK ? '행사 안내·참석 회신·회비 입금을 관리합니다.' : '행사 안내·참석 회신·출석을 관리합니다.'}</p>
+      <div class="seg lseg"><button type="button" class="on" data-lt="pw">회장·임원</button><button type="button" data-lt="lead">조장</button></div>
+      <label class="field" id="lphoneF" hidden><span>휴대폰 번호</span><input id="lphone" type="tel" inputmode="tel" autocomplete="tel" placeholder="010-0000-0000"></label>
+      <label class="field"><span>비밀번호</span><input type="password" id="pw" autocomplete="current-password" required></label>
+      <p class="hint" id="lhint">${LOGIN_HINT.pw}</p>
       <div class="err" id="lerr">${err ? h(err) : ''}</div>
       <button class="btn primary block" type="submit">들어가기</button></form>
     <a class="link" href="${h(B.base)}" target="_top">회원용 홈페이지로 가기</a></main>`;
+  const f = document.getElementById('lf');
+  f.querySelectorAll('.lseg button').forEach(b => {
+    b.onclick = () => {
+      const lt = b.getAttribute('data-lt');
+      f.setAttribute('data-lt', lt);
+      f.querySelectorAll('.lseg button').forEach(x => x.classList.toggle('on', x === b));
+      document.getElementById('lphoneF').hidden = lt !== 'lead';
+      document.getElementById('lphone').required = lt === 'lead';
+      document.getElementById('lhint').textContent = LOGIN_HINT[lt];
+      document.getElementById('lerr').textContent = '';
+    };
+  });
 }
 
 async function doLogin(form) {
   const btn = form.querySelector('button[type=submit]');
+  const lead = form.getAttribute('data-lt') === 'lead';
   btn.disabled = true; btn.textContent = '확인 중…';
-  try { S.token = await api('adm_login', form.querySelector('#pw').value); lsSet('bih_tok', S.token); admStart(); }
-  catch (e) { document.getElementById('lerr').textContent = errMsg(e); btn.disabled = false; btn.textContent = '들어가기'; }
+  try {
+    const r = await api('adm_login2', form.querySelector('#pw').value, lead ? form.querySelector('#lphone').value : '');
+    S.token = typeof r === 'string' ? r : r.token;
+    lsSet('bih_tok', S.token); admStart();
+  } catch (e) { document.getElementById('lerr').textContent = errMsg(e); btn.disabled = false; btn.textContent = '들어가기'; }
 }
 
 function setSync(st) {
@@ -1207,9 +1261,9 @@ function renderAdm(keepScroll) {
   if (!DUES_TRACK && S.sub === 'pay') S.sub = 'rsvp';
   const titles = { events: (S.D.site.name || '백인회') + ' 관리', members: '회원 명부', deposits: '회비 입금', files: '제작물·자료', settings: '설정', event: '행사 관리', join: '회원 가입' };
   app.innerHTML = `<div class="adm">
-    <header class="abar"><div class="abar-l">${S.view === 'event' ? '<button class="iconbtn" data-a="back" aria-label="행사 목록으로">‹</button>' : ''}<b>${h(titles[S.view])}</b></div>
+    <header class="abar"><div class="abar-l">${S.view === 'event' ? '<button class="iconbtn" data-a="back" aria-label="행사 목록으로">‹</button>' : ''}<b>${h(titles[S.view])}</b>${roleChip()}</div>
       <div class="abar-r"><span class="sync" id="sync"></span><button class="iconbtn" data-a="reload" aria-label="새로고침">⟳</button></div></header>
-    ${S.view === 'event' ? evDetailHtml() : `<main class="pad">${({ events: eventsHtml, members: membersHtml, deposits: depositsHtml, files: filesHtml, settings: settingsHtml, join: joinAdmHtml })[S.view]()}</main>`}
+    ${S.view === 'event' ? evDetailHtml() : `<main class="pad">${setupNote()}${({ events: eventsHtml, members: membersHtml, deposits: depositsHtml, files: filesHtml, settings: settingsHtml, join: joinAdmHtml })[S.view]()}</main>`}
     ${navHtml()}
   </div>`;
   window.scrollTo(0, keepScroll ? y : 0);
@@ -1805,7 +1859,7 @@ function membersHtml() {
   });
   const groups = [1, 2, 3, 0].map(no => ({ no: no, list: list.filter(m => teamNo(m) === no) })).filter(g => g.list.length);
   return `<div class="sum wide" style="margin-bottom:10px;border:1px solid var(--line);border-radius:12px;background:#fff">활동 회원 <b>${act.length}명</b><br>${[1, 2, 3].map(n => `<span style="white-space:nowrap">${h(teamName(n, site))} ${act.filter(m => teamNo(m) === n).length}명</span>`).join(' · ')}<br>연락처 등록 ${act.filter(m => m.phone).length}명${vacctMode() ? ` · 전용 입금 계좌 ${act.filter(m => m.vacct).length}명` : ''}</div>
-    <div class="tools"><button class="btn sm primary" data-a="addMember">+ 회원 추가</button><button class="btn sm" data-a="pasteContacts">연락처 붙여넣기</button>${vacctMode() ? '<button class="btn sm" data-a="pasteVaccts">전용 계좌 등록</button>' : ''}</div>
+    <div class="tools">${isChair() ? '<button class="btn sm primary" data-a="addMember">+ 회원 추가</button>' : ''}<button class="btn sm" data-a="pasteContacts">연락처 붙여넣기</button>${vacctMode() ? '<button class="btn sm" data-a="pasteVaccts">전용 계좌 등록</button>' : ''}</div>
     ${chips('mem', [['all', '전체'], ['1', teamName(1, site)], ['2', teamName(2, site)], ['3', teamName(3, site)], ['off', '휴면·탈퇴']])}
     ${searchBox('data-mq', S.memQ, '이름·번호 검색')}
     <div id="list">${groups.length ? groups.map(g => `<div class="tgroup"><div class="tgh" style="--tc:${TEAM_COLOR[g.no]}"><i></i>${h(teamName(g.no, site))}<small>${g.list.length}명</small></div>${g.list.map(memRow).join('')}</div>`).join('') : '<div class="empty">해당하는 회원이 없습니다.</div>'}</div>`;
@@ -1818,33 +1872,57 @@ function memRow(m) {
 function refreshMemList() { if (S.view === 'members') { const y = window.scrollY; renderAdm(true); window.scrollTo(0, y); } }
 
 function openMember(m) {
-  const site = S.D.site, isNew = !m;
+  const site = S.D.site, isNew = !m, chair = isChair();
   const v = m || { name: '', team: '1', role: '계원', title: '', phone: '', memo: '', status: '활동', vacct: '' };
-  const sh = openSheet(isNew ? '회원 추가' : '회원 정보', `
+  const curRole = v.role === '조장' || v.role === '반장' ? v.role : '계원', curSt = v.status || '활동';
+  // 조장 임명·해제는 회장, 반장은 그 조의 조장 화면에서 — 여기서는 반장을 새로 고를 수 없음
+  const roleOpts = !chair ? [curRole] : isNew ? ['계원', '조장'] : curRole === '조장' ? ['조장', '계원'] : [curRole, '조장'];
+  const stOpts = chair ? ['활동', '휴면', '탈퇴'] : curSt === '탈퇴' ? ['탈퇴'] : ['활동', '휴면'];
+  const sh = openSheet(isNew ? '회원 추가 (입회)' : '회원 정보', `
     <label class="field"><span>이름 *</span><input id="mName" value="${h(v.name)}" maxlength="20"></label>
     <div class="row2"><label class="field" style="flex:1"><span>조</span><select id="mTeam">${[1, 2, 3].map(n => `<option value="${n}" ${String(v.team) === String(n) ? 'selected' : ''}>${h(teamName(n, site))}</option>`).join('')}<option value="" ${teamNo(v) ? '' : 'selected'}>조 없음</option></select></label>
-      <label class="field" style="flex:1"><span>조 직책</span><select id="mRole">${['계원', '반장', '조장'].map(r => `<option ${v.role === r ? 'selected' : ''}>${r}</option>`).join('')}</select></label></div>
+      <label class="field" style="flex:1"><span>조 직책</span><select id="mRole" ${roleOpts.length > 1 ? '' : 'disabled'}>${roleOpts.map(r => `<option ${curRole === r ? 'selected' : ''}>${r}</option>`).join('')}</select></label></div>
+    <p class="hint">조장은 회장님이 정하고, 반장은 그 조의 조장님이 조장 화면에서 정합니다.</p>
+    <div id="mLeadBox"></div>
     <label class="field"><span>모임 직함 (회장·총무 등, 선택)</span><input id="mTitle" value="${h(v.title)}" maxlength="30"></label>
     <label class="field"><span>휴대폰</span><input id="mPhone" type="tel" inputmode="tel" value="${h(v.phone)}" placeholder="010-0000-0000"></label>
     <p class="hint">번호를 넣으면 이 회원은 회신할 때 번호 뒷 4자리로 본인 확인을 합니다.</p>
     ${vacctMode() || v.vacct ? `<label class="field"><span>전용 입금 계좌 (가상계좌 번호)</span><input id="mVacct" inputmode="numeric" value="${h(v.vacct || '')}" placeholder="예: 562-912345-10001" maxlength="30"></label>
     <p class="hint">이 계좌로 들어온 돈은 입금자 이름이 달라도 이 회원의 회비로 확인됩니다.</p>` : ''}
     <label class="field"><span>메모</span><input id="mMemo" value="${h(v.memo)}" maxlength="200"></label>
-    <label class="field"><span>상태</span><select id="mStatus">${['활동', '휴면', '탈퇴'].map(st => `<option ${(v.status || '활동') === st ? 'selected' : ''}>${st}</option>`).join('')}</select></label>
-    <div class="err" id="mErr"></div>`, { foot: `<button class="btn primary" style="flex:1" id="mSave">저장</button>${isNew ? '' : '<button class="btn danger" id="mDel">삭제</button>'}` });
+    <label class="field"><span>상태</span><select id="mStatus" ${stOpts.length > 1 ? '' : 'disabled'}>${stOpts.map(st => `<option ${curSt === st ? 'selected' : ''}>${st}</option>`).join('')}</select></label>
+    ${chair ? '' : '<p class="hint">입회·탈퇴와 조장 임명은 회장님만 할 수 있습니다.</p>'}
+    <div class="err" id="mErr"></div>`, { foot: `<button class="btn primary" style="flex:1" id="mSave">저장</button>${!isNew && chair ? '<button class="btn danger" id="mDel">삭제</button>' : ''}` });
+  const leadBox = () => {
+    const box = sh.querySelector('#mLeadBox');
+    if (!chair || val(sh, '#mRole') !== '조장') { box.innerHTML = ''; return; }
+    const has = !isNew && S.D.leaderPw && S.D.leaderPw[v.id];
+    box.innerHTML = `<label class="field"><span>조장 비밀번호 ${has ? '(이미 정함 · 바꿀 때만 입력)' : '(4자 이상)'}</span><input id="mLpw" type="password" autocomplete="new-password" maxlength="40"></label>
+      <p class="hint">조장님은 명부의 휴대폰 번호와 이 비밀번호로 관리 화면에 들어와 우리 조 반장을 정합니다. 정한 비밀번호는 조장님께 직접 알려 주세요.</p>`;
+  };
+  leadBox();
+  sh.querySelector('#mRole').addEventListener('change', leadBox);
   sh.querySelector('#mSave').onclick = async e => {
-    const btn = e.currentTarget;
+    const btn = e.currentTarget, err = sh.querySelector('#mErr');
     const o = { id: isNew ? '' : v.id, name: val(sh, '#mName'), team: val(sh, '#mTeam'), role: val(sh, '#mRole'), title: val(sh, '#mTitle'), phone: val(sh, '#mPhone'), memo: val(sh, '#mMemo'), status: val(sh, '#mStatus') };
     if (sh.querySelector('#mVacct')) o.vacct = val(sh, '#mVacct');   // 칸이 없으면 기존 계좌를 건드리지 않음
-    if (!o.name.trim()) { sh.querySelector('#mErr').textContent = '이름을 넣어 주세요.'; return; }
+    const lpw = String(val(sh, '#mLpw') || '').trim();
+    if (!o.name.trim()) { err.textContent = '이름을 넣어 주세요.'; return; }
+    if (lpw && lpw.length < 4) { err.textContent = '조장 비밀번호는 4자 이상으로 정해 주세요.'; return; }
+    if (lpw && o.phone.replace(/\D/g, '').length < 10) { err.textContent = '조장님 휴대폰 번호를 넣어야 조장 화면에 들어올 수 있습니다.'; return; }
     btn.disabled = true; btn.textContent = '저장 중…';
     try {
       const saved = await api('adm_saveMember', S.token, o);
       S.D.members = sortMembers(S.D.members.filter(x => x.id !== saved.id).concat([saved])); index();
-      closeSheet(); refreshMemList(); toast('저장했어요');
-    } catch (err) {
-      if (isAuth(err)) { handleErr(err); return; }
-      sh.querySelector('#mErr').textContent = errMsg(err); btn.disabled = false; btn.textContent = '저장';
+      if (saved.role !== '조장' && S.D.leaderPw) delete S.D.leaderPw[saved.id];
+      if (lpw && saved.role === '조장') {
+        await api('adm_setLeaderPw', S.token, saved.id, lpw);
+        (S.D.leaderPw = S.D.leaderPw || {})[saved.id] = true;
+      }
+      closeSheet(); refreshMemList(); toast(lpw ? '저장했어요 — 조장 비밀번호도 정했습니다' : '저장했어요');
+    } catch (ex) {
+      if (isAuth(ex)) { handleErr(ex); return; }
+      err.textContent = errMsg(ex); btn.disabled = false; btn.textContent = '저장';
     }
   };
   const del = sh.querySelector('#mDel');
@@ -1854,7 +1932,7 @@ function openMember(m) {
       await api('adm_deleteMember', S.token, v.id);
       S.D.members = S.D.members.filter(x => x.id !== v.id); index();
       closeSheet(); refreshMemList(); toast('삭제했어요');
-    } catch (err) { handleErr(err); }
+    } catch (ex) { handleErr(ex); }
   };
 }
 
@@ -2179,9 +2257,11 @@ function openCard(c) {
     ${sug.length ? `<optgroup label="비슷한 이름">${sug.map(opt).join('')}</optgroup>` : ''}
     ${byTeam.map(g => `<optgroup label="${h(teamName(g.no, site))}">${g.list.map(opt).join('')}</optgroup>`).join('')}</select>`;
   const stPill = { '대기': '<span class="pill wait">확인 기다림</span>', '승인': '<span class="pill ok">승인됨</span>', '반려': '<span class="pill no">반려</span>', '교체': '<span class="pill mute">예전 카드</span>' }[c.state] || '';
+  const chair = isChair();
   const foot = c.state === '승인'
-    ? `<button class="btn primary" style="flex:1" id="cSave">고친 내용 저장</button><button class="btn" id="cBack">대기로</button><button class="btn danger" id="cDel">삭제</button>`
-    : `<button class="btn primary" style="flex:1" id="cOk">승인</button><button class="btn" id="cNo">반려</button><button class="btn danger" id="cDel">삭제</button>`;
+    ? `<button class="btn primary" style="flex:1" id="cSave">고친 내용 저장</button>${chair ? '<button class="btn" id="cBack">대기로</button><button class="btn danger" id="cDel">삭제</button>' : ''}`
+    : chair ? `<button class="btn primary" style="flex:1" id="cOk">승인</button><button class="btn" id="cNo">반려</button><button class="btn danger" id="cDel">삭제</button>`
+    : '<p class="hint" style="flex:1;margin:0;text-align:center">가입 승인·반려는 회장님이 합니다.</p>';
   const sh = openSheet('회원 카드 확인', `
     <div class="cdet"><div class="cbig" data-cph="${h(c.photo || '')}">${C.ph[c.photo] ? `<img src="${C.ph[c.photo]}" alt="">` : '<span>사진 없음</span>'}</div>
       <div class="cmeta">${stPill}<div class="sub">${h(shortTs(c.at))} 신청</div>${c.agreeAt ? `<div class="sub">개인정보 동의 ${h(shortTs(c.agreeAt))}</div>` : ''}${c.doneAt ? `<div class="sub">${h(shortTs(c.doneAt))} 처리</div>` : ''}
@@ -2191,7 +2271,7 @@ function openCard(c) {
     <div class="row2"><label class="field" style="flex:1;min-width:120px"><span>조</span><select id="cTeam">${[1, 2, 3].map(n => `<option value="${n}" ${String(c.team) === String(n) ? 'selected' : ''}>${h(teamName(n, site))}</option>`).join('')}<option value="" ${['1', '2', '3'].indexOf(String(c.team)) >= 0 ? '' : 'selected'}>모름</option></select></label>
       <label class="field" style="flex:1.3;min-width:150px"><span>휴대폰</span><input id="cPhone" type="tel" value="${h(c.phone)}"></label></div>
     <label class="field"><span>업체(상호)</span><input id="cCompany" value="${h(c.company)}" maxlength="40"></label>
-    <div class="row2"><label class="field" style="flex:1;min-width:120px"><span>직책</span><input id="cPosition" value="${h(c.position)}" maxlength="30"></label>
+    <div class="row2"><label class="field" style="flex:1;min-width:120px"><span>회사 직함</span><input id="cPosition" value="${h(c.position)}" maxlength="30"></label>
       <label class="field" style="flex:1.4;min-width:150px"><span>하는 일·업종</span><input id="cBiz" value="${h(c.biz)}" maxlength="40"></label></div>
     <label class="field"><span>한마디 소개</span><textarea id="cIntro" rows="2" maxlength="100">${h(c.intro)}</textarea></label>
     <label class="chk2"><input type="checkbox" id="cPubCard" ${c.pubCard === 'Y' ? 'checked' : ''}><span><b>회원 소개·카탈로그에 싣기</b><small>신청자가 고른 값입니다. 본인 뜻 없이 바꾸지 마세요.</small></span></label>
@@ -2252,7 +2332,7 @@ function openCard(c) {
 
 function joinMsg() {
   const s = S.D.site, base = joinBase();
-  return lines([`[${s.name}] 회원 카드 등록 안내`, '', `${s.name} 회원 여러분, 홈페이지에 내 회원 카드를 만들어 주세요.`, '사진과 업체·하는 일을 올려 주시면 임원 확인 후', `회원 소개와 ${s.name} 카탈로그에 실립니다.`, '',
+  return lines([`[${s.name}] 회원 카드 등록 안내`, '', `${s.name} 회원 여러분, 홈페이지에 내 회원 카드를 만들어 주세요.`, '사진과 업체·하는 일을 올려 주시면 회장님 승인 후', `회원 소개와 ${s.name} 카탈로그에 실립니다.`, '',
     '▶ 회원 카드 만들기 (1분이면 됩니다)', base + '?join', '', '▶ 회원 소개 보기', base + '?members', '',
     '명단에 이름이 없는 분도 ‘새로 가입’으로 내 주시면 됩니다.']);
 }
@@ -2291,24 +2371,32 @@ function settingsHtml() {
         <label class="field" style="flex:1;min-width:130px"><span>예금주</span><input name="vholder" value="${h(s.vholder || '')}" maxlength="30" placeholder="예: 백인회"></label></div>
       <p class="hint">${vacctMode() ? '회원마다 받은 계좌번호는 ‘회원 › 전용 계좌 등록’에서 넣습니다.' : '나중에 은행에서 가상계좌를 받으면 은행·예금주를 넣고 저장하세요. 그때부터 ‘회원 › 전용 계좌 등록’이 나타납니다.'} 가상계좌의 모계좌는 위 ‘기본 입금 계좌’에 넣어 두면 회원 계좌와 헷갈리지 않습니다.</p>` : ''}
       <button class="btn primary block" type="submit">저장</button></form>
-    <form class="card" id="pwForm"><div class="ct">관리자 비밀번호 바꾸기</div>
+    <div class="card"><div class="ct">누가 무엇을 하나요</div>
+      <p class="hint" style="margin:0;line-height:1.75"><b>회장님</b> — 입회(가입 승인·반려)·탈퇴·조장 임명, 비밀번호<br><b>조장님</b> — 우리 조 반장 정하기 (휴대폰 번호 + 조장 비밀번호)<br><b>임원</b> — 행사 안내·참석 회신·출석·자료</p></div>
+    ${isChair() ? `<form class="card" id="chairForm"><div class="ct">회장 비밀번호 ${S.D.chairSet ? '바꾸기' : '정하기'}</div>
+      <label class="field"><span>새 회장 비밀번호 (6자 이상)</span><input name="newChairPassword" type="password" autocomplete="new-password"></label>
+      <p class="hint">${S.D.chairSet ? '바꾸면 회장님도 새 비밀번호로 다시 들어오셔야 합니다.' : '정하고 나면 입회·탈퇴·조장 임명은 이 비밀번호로 들어온 회장님만 할 수 있고, 임원 공용 비밀번호로 들어온 분은 임원 권한만 갖습니다.'}</p>
+      <button class="btn block" type="submit">${S.D.chairSet ? '회장 비밀번호 바꾸기' : '회장 비밀번호 정하기'}</button></form>
+    <form class="card" id="pwForm"><div class="ct">임원 공용 비밀번호 바꾸기</div>
       <label class="field"><span>새 비밀번호 (4자 이상)</span><input name="newPassword" type="password" autocomplete="new-password"></label>
-      <p class="hint">바꾸면 다른 임원도 새 비밀번호로 다시 로그인해야 합니다.</p>
-      <button class="btn block" type="submit">비밀번호 바꾸기</button></form>
+      <p class="hint">행사·회신·출석을 맡는 임원이 함께 쓰는 비밀번호입니다. 바꾸면 임원도 새 비밀번호로 다시 들어와야 합니다.</p>
+      <button class="btn block" type="submit">비밀번호 바꾸기</button></form>` : '<p class="hint" style="margin:14px 2px 0">비밀번호는 회장님이 정합니다.</p>'}
     <button class="btn ghost block" data-a="logout" style="margin-top:14px">로그아웃</button>`;
 }
 
-async function saveSettings(form, pwOnly) {
+async function saveSettings(form, mode) {
   const fd = {};
   Array.from(form.elements).forEach(el => { if (el.name) fd[el.name] = el.value; });
-  if (pwOnly && String(fd.newPassword || '').trim().length < 4) { toast('비밀번호는 4자 이상으로 정해 주세요.'); return; }
+  if (mode === 'staff' && String(fd.newPassword || '').trim().length < 4) { toast('비밀번호는 4자 이상으로 정해 주세요.'); return; }
+  if (mode === 'chair' && String(fd.newChairPassword || '').trim().length < 6) { toast('회장 비밀번호는 6자 이상으로 정해 주세요.'); return; }
   const btn = form.querySelector('button[type=submit]');
   btn.disabled = true;
   try {
     const r = await api('adm_saveSettings', S.token, fd);
     S.D.site = r.site;
+    if ('chairSet' in r) S.D.chairSet = r.chairSet;
     if (r.token) { S.token = r.token; lsSet('bih_tok', r.token); }
-    renderAdm(true); toast(pwOnly ? '비밀번호를 바꿨어요' : '저장했어요');
+    renderAdm(true); toast(mode === 'chair' ? '회장 비밀번호를 정했어요' : mode ? '비밀번호를 바꿨어요' : '저장했어요');
   } catch (e) { handleErr(e); btn.disabled = false; }
 }
 
@@ -2348,7 +2436,7 @@ function admAction(a) {
     case 'addFile': openFile(); break;
     case 'copyJoinMsg': copyText(joinMsg()); break;
     case 'copyNotJoined': copyNotJoined(); break;
-    case 'logout': lsDel('bih_tok'); S.token = null; showLogin(); break;
+    case 'logout': lsDel('bih_tok'); S.token = null; S.D = null; S.L = null; showLogin(); break;
     default: break;
   }
 }
@@ -2404,13 +2492,52 @@ function onAdmClick(e) {
   if ((el = t.closest('[data-a]'))) admAction(el.getAttribute('data-a'));
 }
 
+/* ── 조장 화면: 우리 조 반장 정하기 ── */
+function renderLead() {
+  const L = S.L, site = L.site, me = L.me;
+  const rows = L.members.map(m => {
+    const btn = m.role === '조장' ? '' : m.role === '반장'
+      ? `<button class="btn sm" data-sub0="${h(m.id)}">반장 풀기</button>`
+      : `<button class="btn sm primary" data-sub1="${h(m.id)}">반장으로</button>`;
+    return `<div class="mrow"><div class="mn"><b>${h(m.name)}</b>${roleBadge(m)}${m.title ? ` <span class="tag">${h(m.title)}</span>` : ''}${m.id === me.id ? ' <span class="tag">나</span>' : ''}</div>${btn}</div>`;
+  }).join('');
+  const subs = L.members.filter(m => m.role === '반장').map(m => m.name);
+  app.innerHTML = `<div class="adm">
+    <header class="abar"><div class="abar-l"><b>${h(teamName(me.team, site))} 조장</b><span class="who">${h(me.name)}</span></div>
+      <div class="abar-r"><span class="sync" id="sync"></span><button class="iconbtn" data-a="leadReload" aria-label="새로고침">⟳</button></div></header>
+    <main class="pad"><div class="card" style="margin-top:0"><div class="ct">우리 조 반장 정하기</div>
+      <p class="hint">반장은 조장님이 정합니다. 입회·탈퇴와 조장 임명은 회장님이 합니다.</p>
+      <div class="sum wide" style="margin:8px 0 6px">지금 반장: <b>${subs.length ? h(subs.join(', ')) : '없음'}</b> · 우리 조 ${L.members.length}명</div>
+      <div id="list">${rows || '<div class="empty">우리 조 회원이 없습니다.</div>'}</div></div>
+      <button class="btn ghost block" data-a="logout" style="margin-top:14px">로그아웃</button></main></div>`;
+  setSync(SYNC.state);
+}
+
+async function setSub(id, on, btn) {
+  btn.disabled = true; setSync('saving');
+  try { S.L = await api('adm_setSubLeader', S.token, id, on); renderLead(); setSync('ok'); toast(on ? '반장으로 정했어요' : '반장을 풀었어요'); }
+  catch (e) { handleErr(e); btn.disabled = false; }
+}
+
+function onLeadClick(e) {
+  const t = e.target;
+  let el;
+  if ((el = t.closest('[data-sub1]'))) { setSub(el.getAttribute('data-sub1'), true, el); return; }
+  if ((el = t.closest('[data-sub0]'))) { setSub(el.getAttribute('data-sub0'), false, el); return; }
+  if ((el = t.closest('[data-a]'))) {
+    const a = el.getAttribute('data-a');
+    if (a === 'logout') { lsDel('bih_tok'); S.token = null; S.L = null; showLogin(); }
+    else if (a === 'leadReload') admStart();
+  }
+}
+
 /* ═════════════ 시작 ═════════════ */
 document.addEventListener('click', e => {
   const c = e.target.closest('[data-copy]');
   if (c) { copyText(c.getAttribute('data-copy')); return; }
   const ct = e.target.closest('[data-copyta]');
   if (ct) { const ta = document.getElementById(ct.getAttribute('data-copyta')); if (ta) copyText(ta.value); return; }
-  if (B.route === 'admin') { if (S.D) onAdmClick(e); } else onPubClick(e);
+  if (B.route === 'admin') { if (S.L) onLeadClick(e); else if (S.D) onAdmClick(e); } else onPubClick(e);
 });
 document.addEventListener('input', e => {
   const t = e.target;
@@ -2430,7 +2557,8 @@ document.addEventListener('submit', e => {
   if (f.id === 'lf') { e.preventDefault(); doLogin(f); }
   else if (f.id === 'jf') { e.preventDefault(); sendCard(f); }
   else if (f.id === 'setForm') { e.preventDefault(); saveSettings(f, false); }
-  else if (f.id === 'pwForm') { e.preventDefault(); saveSettings(f, true); }
+  else if (f.id === 'pwForm') { e.preventDefault(); saveSettings(f, 'staff'); }
+  else if (f.id === 'chairForm') { e.preventDefault(); saveSettings(f, 'chair'); }
 });
 document.addEventListener('change', e => {
   if (e.target && e.target.id === 'jfile') pickPhoto(e.target.files && e.target.files[0]);
