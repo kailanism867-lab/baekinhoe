@@ -2,6 +2,6 @@
 
 100인회 영원한 동지들 — 행사 안내 · 참석 회신 · 회원 카드 · 회원 소개
 
-- 주소: https://kailanism867-lab.github.io/baekinhoe/
+- 주소: https://baekinhoe.kr/ (도메인 baekinhoe.kr — 카페24 등록, DNS는 클라우드플레어)
 - 회원 카드 만들기: `?join` · 회원 소개: `?members` · 행사: `?e=행사ID` · 임원 관리: `?admin`
 - 화면은 이 저장소(깃허브 페이지)에서 열리고, 자료는 백인회 구글 시트와 구글 Apps Script 서버에 저장됩니다.
