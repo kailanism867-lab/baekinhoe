@@ -1159,6 +1159,8 @@ const setupNote = () => isChair() && !S.D.chairSet && S.view !== 'settings'
   ? '<button class="gocard" data-nav="settings" style="margin-bottom:10px"><span>회장 비밀번호를 아직 정하지 않았습니다 — 지금은 임원 공용 비밀번호로 들어온 분도 회장 권한을 가집니다</span><span>정하기 ›</span></button>' : '';
 const part = (eid, mid) => (IDX.parts[eid] || {})[mid];
 const activeMembers = () => S.D.members.filter(m => !m.status || m.status === '활동');
+// 조 모임(대상 조가 있는 행사)은 그 조 회원만 셉니다
+const evMembers = ev => activeMembers().filter(m => !ev || !ev.team || String(teamNo(m)) === String(ev.team));
 const curEv = () => S.D.events.filter(e => e.id === S.evId)[0];
 const inviteUrl = ev => (S.D.base || B.base) + '?e=' + encodeURIComponent(ev.id);
 const evTitle = id => { const e = S.D.events.filter(x => x.id === id)[0]; return e ? e.title : ''; };
@@ -1180,7 +1182,7 @@ function index() {
 function stats(ev) {
   const ps = IDX.parts[ev.id] || {};
   const st = { total: 0, yes: 0, no: 0, none: 0, paid: 0, notified: 0, unpaid: 0, unconfirmed: 0, paidSum: 0, att: 0 };
-  activeMembers().forEach(m => {
+  evMembers(ev).forEach(m => {
     const p = ps[m.id] || {};
     st.total++;
     if (p.attend === '참석') st.yes++; else if (p.attend === '불참') st.no++; else st.none++;
@@ -1300,7 +1302,7 @@ function eventsHtml() {
     const st = stats(ev);
     const pct = n => st.total ? Math.round(n * 100 / st.total) : 0;
     return `<button class="aev" data-open="${h(ev.id)}">
-      <div class="aev-t"><b>${h(ev.title)}</b>${ev.status !== '진행' ? `<span class="tag">${h(ev.status)}</span>` : ''}${ev.date ? `<span class="dday">${h(dday(ev.date, today))}</span>` : ''}</div>
+      <div class="aev-t"><b>${h(ev.title)}</b>${ev.team ? `<span class="tag">${h(ev.team)}조만</span>` : ''}${ev.status !== '진행' ? `<span class="tag">${h(ev.status)}</span>` : ''}${ev.date ? `<span class="dday">${h(dday(ev.date, today))}</span>` : ''}</div>
       <div class="aev-m">${h([dShort(ev.date) + (ev.time ? ' ' + tKo(ev.time) : ''), ev.place].filter(Boolean).join(' · '))}</div>
       <div class="aev-s"><span class="ok">참석 ${st.yes}</span><span class="no">불참 ${st.no}</span><span class="wait">미회신 ${st.none}</span>${ev.fee && DUES_TRACK ? `<span class="pay">입금 ${st.paid}/${st.yes}</span>` : ''}</div>
       <div class="bar"><i class="b-ok" style="width:${pct(st.yes)}%"></i><i class="b-no" style="width:${pct(st.no)}%"></i></div>
@@ -1316,7 +1318,7 @@ function evDetailHtml() {
   const ev = curEv();
   if (!ev) return '<main class="pad"><div class="empty">행사를 찾지 못했습니다.</div></main>';
   const tabs = [['msg', '안내·초대장'], ['rsvp', '참석 회신'], ['pay', '회비'], ['att', '출석'], ['info', '정보']].filter(t => DUES_TRACK || t[0] !== 'pay');
-  return `<div class="evhead"><div class="evh-t">${h(ev.title)}${ev.status !== '진행' ? ` <span class="tag">${h(ev.status)}</span>` : ''}</div>
+  return `<div class="evhead"><div class="evh-t">${h(ev.title)}${ev.team ? ` <span class="tag">${h(ev.team)}조만</span>` : ''}${ev.status !== '진행' ? ` <span class="tag">${h(ev.status)}</span>` : ''}</div>
       <div class="evh-m">${h([dShort(ev.date) + (ev.time ? ' ' + tKo(ev.time) : ''), ev.place].filter(Boolean).join(' · '))} ${ev.date ? `<span class="dday">${h(dday(ev.date, S.D.today))}</span>` : ''}</div>
       <div class="subtabs" role="tablist">${tabs.map(([k, l]) => `<button class="st ${S.sub === k ? 'on' : ''}" data-sub="${k}" role="tab">${l}</button>`).join('')}</div></div>
     <main class="pad" id="sub">${subHtml(ev)}</main>`;
@@ -1354,7 +1356,7 @@ function passFilter(ev, m, mode) {
 
 function groupedList(ev, mode) {
   const site = S.D.site, q = S.q.trim();
-  const mem = activeMembers().filter(m => passFilter(ev, m, mode) && (!q || m.name.indexOf(q) >= 0));
+  const mem = evMembers(ev).filter(m => passFilter(ev, m, mode) && (!q || m.name.indexOf(q) >= 0));
   const groups = [1, 2, 3, 0].map(no => ({ no: no, list: mem.filter(m => teamNo(m) === no) })).filter(g => g.list.length);
   if (!groups.length) return '<div class="empty">해당하는 회원이 없습니다.</div>';
   return groups.map(g => `<div class="tgroup"><div class="tgh" style="--tc:${TEAM_COLOR[g.no]}"><i></i>${h(teamName(g.no, site))}<small>${g.list.length}명</small></div>${g.list.map(m => rowHtml(ev, m, mode)).join('')}</div>`).join('');
@@ -1457,7 +1459,7 @@ function infoHtml(ev) {
 function namesBy(ev, pred, withRole) {
   const site = S.D.site, out = [];
   [1, 2, 3, 0].forEach(no => {
-    const list = activeMembers().filter(m => teamNo(m) === no && pred(m, part(ev.id, m.id) || {}));
+    const list = evMembers(ev).filter(m => teamNo(m) === no && pred(m, part(ev.id, m.id) || {}));
     if (list.length) out.push(`${teamName(no, site)} (${list.length}명): ${list.map(m => m.name + (withRole && m.role && m.role !== '계원' ? '(' + m.role + ')' : '')).join(', ')}`);
   });
   return out;
@@ -1471,7 +1473,7 @@ function templates(ev) {
   const T = [];
   T.push({ name: '초대 안내 (단톡방·문자)', hint: '처음 보내는 행사 안내입니다. 링크를 누르면 이름만 골라 회신할 수 있습니다.', text: lines([
     `[${s.name}] ${ev.title} 안내`, '',
-    `안녕하세요, ${s.name}입니다.`, `${ev.title}에 회원 여러분을 모십니다.`, '',
+    `안녕하세요, ${s.name}입니다.`, `${ev.title}에 ${ev.team ? ev.team + '조 조원' : '회원'} 여러분을 모십니다.`, '',
     `■ 일시: ${when}`, where ? `■ 장소: ${where}` : null,
     ev.fee ? `■ 회비: ${won(ev.fee)}` : null,
     ev.fee && vOn ? '■ 입금: 회원마다 전용 계좌가 있습니다. 아래 링크에서 이름을 누르면 내 계좌가 나옵니다.' : ev.fee && acc ? `■ 입금 계좌: ${acc}` : null,
@@ -1700,7 +1702,7 @@ function openPasteRsvp(ev) {
     <textarea class="tpl-ta" id="pTa" rows="7" placeholder="[김진호] [오후 6:40] 참석합니다&#10;[하주희] [오후 6:41] 이번엔 못 가요&#10;참석: 김덕수, 김판승"></textarea>
     <button class="btn primary block" id="pGo">이름 찾기</button><div id="pOut"></div>`);
   sh.querySelector('#pGo').onclick = () => {
-    const r = parseRsvp(sh.querySelector('#pTa').value, activeMembers());
+    const r = parseRsvp(sh.querySelector('#pTa').value, evMembers(ev));
     const out = sh.querySelector('#pOut');
     if (!r.items.length) { out.innerHTML = `<div class="empty" style="margin-top:12px">회원 이름과 참석/불참을 찾지 못했어요.${r.unknown.length ? '<br><small>' + h(r.unknown.slice(0, 3).join(' / ')) + '</small>' : ''}</div>`; return; }
     r.items.forEach(it => { const cur = (part(ev.id, it.m.id) || {}).attend || ''; it.cur = cur || '미회신'; it.checked = cur !== it.attend; });
@@ -1793,7 +1795,7 @@ function openPayMenu(ev, m) {
 function openEventForm(ev, dup) {
   const s = S.D.site;
   const isNew = !ev || dup;
-  const v = ev ? Object.assign({}, ev) : { title: '', date: '', time: '18:30', place: '', address: '', fee: '', account: s.account, deadline: '', notice: '', status: '진행' };
+  const v = ev ? Object.assign({}, ev) : { title: '', date: '', time: '18:30', place: '', address: '', fee: '', account: s.account, deadline: '', notice: '', status: '진행', team: '' };
   if (dup) Object.assign(v, { id: '', date: '', deadline: '', status: '진행' });
   const sh = openSheet(isNew ? (dup ? '복사해서 새 행사' : '새 행사 만들기') : '행사 정보 고치기', `
     <label class="field"><span>행사 이름 *</span><input id="eTitle" value="${h(v.title)}" maxlength="60" placeholder="예: 2026 송년회"></label>
@@ -1801,6 +1803,8 @@ function openEventForm(ev, dup) {
       <label class="field" style="flex:1;min-width:120px"><span>시간</span><input id="eTime" type="time" value="${h(/^\d{1,2}:\d{2}$/.test(v.time) ? v.time : '')}"></label></div>
     <label class="field"><span>장소</span><input id="ePlace" value="${h(v.place)}" maxlength="60" placeholder="예: ○○웨딩홀 3층 그랜드홀"></label>
     <label class="field"><span>주소 (지도 찾기용, 선택)</span><input id="eAddr" value="${h(v.address)}" maxlength="120"></label>
+    <label class="field"><span>대상</span><select id="eTeam">${[['', '전체 회원'], ['1', '1조만'], ['2', '2조만'], ['3', '3조만']].map(([k, l]) => `<option value="${k}" ${String(v.team || '') === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+    <p class="hint" style="margin-top:-6px">조를 고르면 그 조 회원만 회신하고, 홈페이지 행사 목록에는 나오지 않습니다(링크로만 엽니다).</p>
     <div class="row2"><label class="field" style="flex:1;min-width:120px"><span>회비 (원)</span><input id="eFee" inputmode="numeric" value="${h(v.fee || '')}" placeholder="0"></label>
       <label class="field" style="flex:1;min-width:150px"><span>회신 마감일</span><input id="eDl" type="date" value="${h(v.deadline)}"></label></div>
     <label class="field"><span>입금 계좌</span><input id="eAcc" value="${h(v.account || '')}" placeholder="은행 계좌번호 예금주"></label>
@@ -1808,7 +1812,7 @@ function openEventForm(ev, dup) {
     <div class="err" id="eErr"></div>`, { foot: `<button class="btn primary" style="flex:1" id="eSave">${isNew ? '만들기' : '저장'}</button>` });
   sh.querySelector('#eSave').onclick = async e => {
     const btn = e.currentTarget;
-    const o = { id: isNew ? '' : v.id, title: val(sh, '#eTitle'), date: val(sh, '#eDate'), time: val(sh, '#eTime'), place: val(sh, '#ePlace'), address: val(sh, '#eAddr'), fee: val(sh, '#eFee'), deadline: val(sh, '#eDl'), account: val(sh, '#eAcc'), notice: val(sh, '#eNotice'), status: isNew ? '진행' : v.status };
+    const o = { id: isNew ? '' : v.id, title: val(sh, '#eTitle'), date: val(sh, '#eDate'), time: val(sh, '#eTime'), place: val(sh, '#ePlace'), address: val(sh, '#eAddr'), fee: val(sh, '#eFee'), deadline: val(sh, '#eDl'), account: val(sh, '#eAcc'), notice: val(sh, '#eNotice'), status: isNew ? '진행' : v.status, team: val(sh, '#eTeam') };
     if (!o.title.trim()) { sh.querySelector('#eErr').textContent = '행사 이름을 넣어 주세요.'; return; }
     if (!o.date) { sh.querySelector('#eErr').textContent = '날짜를 골라 주세요.'; return; }
     btn.disabled = true; btn.textContent = '저장 중…';
